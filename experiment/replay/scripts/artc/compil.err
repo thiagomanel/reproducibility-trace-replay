@@ -1,0 +1,36 @@
+artc: artc.c:1818: check_event_dep: Assertion `otherevent->time.entry > otherthread_lastseen->time.exit' failed.
+./compile_workload.sh: line 13:  5543 Aborted                 (core dumped) $artc --strace $traced_file $init_file $outdir
+artc: artc.c:1818: check_event_dep: Assertion `otherevent->time.entry > otherthread_lastseen->time.exit' failed.
+./compile_workload.sh: line 13:  5582 Aborted                 (core dumped) $artc --strace $traced_file $init_file $outdir
+artc: artc.c:1818: check_event_dep: Assertion `otherevent->time.entry > otherthread_lastseen->time.exit' failed.
+./compile_workload.sh: line 13:  5700 Aborted                 (core dumped) $artc --strace $traced_file $init_file $outdir
+artc: artc.c:1818: check_event_dep: Assertion `otherevent->time.entry > otherthread_lastseen->time.exit' failed.
+./compile_workload.sh: line 13:  5836 Aborted                 (core dumped) $artc --strace $traced_file $init_file $outdir
+artc: artc.c:1818: check_event_dep: Assertion `otherevent->time.entry > otherthread_lastseen->time.exit' failed.
+./compile_workload.sh: line 13:  5860 Aborted                 (core dumped) $artc --strace $traced_file $init_file $outdir
+artc: artc.c:1818: check_event_dep: Assertion `otherevent->time.entry > otherthread_lastseen->time.exit' failed.
+./compile_workload.sh: line 13:  5867 Aborted                 (core dumped) $artc --strace $traced_file $init_file $outdir
+artc: artc.c:1818: check_event_dep: Assertion `otherevent->time.entry > otherthread_lastseen->time.exit' failed.
+./compile_workload.sh: line 13:  5910 Aborted                 (core dumped) $artc --strace $traced_file $init_file $outdir
+artc: artc.c:1818: check_event_dep: Assertion `otherevent->time.entry > otherthread_lastseen->time.exit' failed.
+./compile_workload.sh: line 13:  5999 Aborted                 (core dumped) $artc --strace $traced_file $init_file $outdir
+artc: artc.c:1818: check_event_dep: Assertion `otherevent->time.entry > otherthread_lastseen->time.exit' failed.
+./compile_workload.sh: line 13:  6008 Aborted                 (core dumped) $artc --strace $traced_file $init_file $outdir
+artc: artc.c:1818: check_event_dep: Assertion `otherevent->time.entry > otherthread_lastseen->time.exit' failed.
+./compile_workload.sh: line 13:  6051 Aborted                 (core dumped) $artc --strace $traced_file $init_file $outdir
+artc: artc.c:1818: check_event_dep: Assertion `otherevent->time.entry > otherthread_lastseen->time.exit' failed.
+./compile_workload.sh: line 13:  6094 Aborted                 (core dumped) $artc --strace $traced_file $init_file $outdir
+artc: artc.c:1818: check_event_dep: Assertion `otherevent->time.entry > otherthread_lastseen->time.exit' failed.
+./compile_workload.sh: line 13:  6238 Aborted                 (core dumped) $artc --strace $traced_file $init_file $outdir
+artc: artc.c:1818: check_event_dep: Assertion `otherevent->time.entry > otherthread_lastseen->time.exit' failed.
+./compile_workload.sh: line 13:  6655 Aborted                 (core dumped) $artc --strace $traced_file $init_file $outdir
+artc: artc.c:1818: check_event_dep: Assertion `otherevent->time.entry > otherthread_lastseen->time.exit' failed.
+./compile_workload.sh: line 13:  6679 Aborted                 (core dumped) $artc --strace $traced_file $init_file $outdir
+artc: artc.c:1818: check_event_dep: Assertion `otherevent->time.entry > otherthread_lastseen->time.exit' failed.
+./compile_workload.sh: line 13:  6683 Aborted                 (core dumped) $artc --strace $traced_file $init_file $outdir
+artc: artc.c:1818: check_event_dep: Assertion `otherevent->time.entry > otherthread_lastseen->time.exit' failed.
+./compile_workload.sh: line 13:  6901 Aborted                 (core dumped) $artc --strace $traced_file $init_file $outdir
+artc: artc.c:1818: check_event_dep: Assertion `otherevent->time.entry > otherthread_lastseen->time.exit' failed.
+./compile_workload.sh: line 13:  7091 Aborted                 (core dumped) $artc --strace $traced_file $init_file $outdir
+artc: artc.c:1818: check_event_dep: Assertion `otherevent->time.entry > otherthread_lastseen->time.exit' failed.
+./compile_workload.sh: line 13:  7287 Aborted                 (core dumped) $artc --strace $traced_file $init_file $outdir

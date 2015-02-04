@@ -1,0 +1,4 @@
+- To build a collection of baseline output files at directory $dir:
+   - convert baseline to artc strace format: for f in `ls $dir/*.load.out`; do wld=`basename $f | cut -d"." -f3`; python baseline_capture_to_artc_input.py $wld < $f > $f.workload;done
+   - generate workload source code: for f in `ls $dir/*.load.out.workload`; do ./code_gen $f init.file;done
+   - compile source code: for d in `find $dir -name "*target" -type d`; do cd $d; make; cd -;done
