@@ -1,0 +1,4 @@
+Acceptance tests
+
+replay_workflow_test.sh - It takes a workflow input file directly. It replays the workflow file and trace the replay process using strace linux tool. Then, strace output is matched against workflow input file using replay ordering and time rules. replay_workflow_test.sh isolates replay from trace input file processing and parsing.
+
