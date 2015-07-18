@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 
 source ../../conf/experiment.conf
 
@@ -43,7 +43,7 @@ function background {
 }
 
 function killall_background {
-   killall "background"
+   killall -q "background"
 }
 
 function create_dirs {
