@@ -3,7 +3,7 @@
 source $HOME_REPLAYER/etc/experiment-env.conf
 
 artc_geninit() {
-	echo "--> generating init files"
+	echo "--> generating init files..."
 	local used_dirs="$TARGET_MNT"
 
 	if [ ! -x $ARTC_GENINIT ]; then
@@ -14,6 +14,42 @@ artc_geninit() {
 	mkdir -p $ARTC_GENINIT_OUTDIR
 	$ARTC_GENINIT -a $used_dirs > $ARTC_GENINIT_FILE
 	echo "<-- finished generating init files"
+}
+
+compile_artc_trace() {
+	make --directory=$1 --makefile=$1/Makefile
+}
+
+exec_artc_codegen() {
+	mkdir -p $ARTC_GEN_OUTDIR
+
+	for trace_file in $CAPTURE_OUTDIR/*.*.$workload.*.*.*.*.*.*.load.out; do
+		local artc_gen_outdir=$ARTC_GEN_OUTDIR/$(basename $trace_file)
+		mkdir -p $artc_gen_outdir
+
+		$ARTC_CODEGEN --strace $trace_file $ARTC_GENINIT_FILE $artc_gen_outdir
+		compile_artc_trace $artc_gen_outdir
+	done
+}
+
+artc_codegen() {
+	echo "--> compiling traces for artc..."
+
+	if [ ! -x $ARTC_GENINIT ]; then
+		echo "You need to compile artc code for geninit, of maybe you did not set HOME_REPLAYER variable"
+		exit 1;
+	fi
+
+	if [ ! -f $ARTC_GENINIT_FILE ]; then
+		echo "You need to generate init file first, try --artc-geninit"
+		exit 1;
+	fi
+
+
+	# ./artc --strace /local/experiments/converted-artc/1.10768.rw.8.50.5000.4096.1.0.load.out /local/experiments/artc-files/artc-replayer.init /tmp/
+#	$ARTC_CODEGEN --strace $ARTC_GENINIT_FILE $ARTC_GEN_OUTDIR
+
+	exec_artc_codegen;
 }
 
 show_help() {
@@ -36,7 +72,7 @@ define_parameters() {
 				exit 0;
 				;;
 			--artc-codegen)
-				echo "codegen"
+				artc_codegen;
 				;;
 			--artcrun)
 				echo "run"
