@@ -1,0 +1,104 @@
+
+REQUIREMENTS
+============
+
+The following auxiliary tools and/or packages are required for
+building the compiler and the benchmarks it generates:
+
+* bison >= 2.4
+* flex >= 2.5.35
+* gperf >= 2.7.2
+* xxd (tested with V1.10; usually part of the `vim' package)
+* GNU make (gmake on some systems)
+* Possibly `libaio-devel' (depending on your system)
+* pandoc if you want man pages (if not you can just read *.md)
+
+Development has been primarily on Linux, but Mac OS X, FreeBSD, and
+Illumos should (in theory) also work.
+
+If you want to compile strace traces that involve native Linux AIO
+(i.e. io_submit() and friends), you'll need strace version 4.8 or
+later (earlier versions had an output formatting bug that made it
+unparseable).
+
+HOW TO USE
+==========
+
+Running `make' by default builds the compiler (`artc') and the replayer
+(`artrun').  See the file artc.md (or the man page artc.1.gz if you've got
+pandoc installed and have run `make docs') for usage.
+
+Generating strace traces
+------------------------
+
+artc can parse and compile strace output, but only when strace was invoked
+with a specific set of flags.  The provided 'strace-artc' script wraps
+strace and will run it with these flags, along with doing some extra
+bookkeeping necessary if you want to attach to an already-running process.
+strace-artc is invoked similarly to strace itself, with the '-o' flag to
+specify its output file and the '-p' flag to specify an existing process to
+attach to (otherwise you just supply it with a command to run, like regular
+strace).  Additionally, when using '-p', you can also pass '-s' to
+strace-artc, which causes it to SIGSTOP the target process while inspecting
+its existing file-descriptor state so as to get a stable snapshot.  This is
+disabled by default, because it often causes problems, and should only be
+necessary for attaching to a very active process (i.e. ones whose file
+descriptor state is rapidly fluctuating).  Ideally you would attach it to
+something while it's relatively idle, and then prod it into activity, in
+which case stopping the process beforehand should be unnecessary.
+
+Generating init listings
+------------------------
+
+The second input file artc requires is a listing of how to initialize
+the filesystem prior to running the replay benchmark.  This listing
+can be generated with the `geninit' script.  This takes a set of paths
+as its arguments (or none, which is treated as "/"), and outputs an
+init listing for all paths beneath them in the filesystem tree.  By
+default it does not cross mount points, so if you have a submount that
+you *do* want in the init listing, either specify it explicitly or use
+the '-a' flag, which causes all mount points to be traversed.
+
+
+The `clearcache' helper
+-----------------------
+
+There is a separate helper program, `clearcache', which is designed to be
+called from artrun after initializing the filesystem tree but before running
+the benchmark itself.  Since clearing the system's cache can require special
+privileges (e.g., to write to /proc/sys/vm/drop_caches on Linux), but I'd
+rather not require that artrun itself run privileged, the intent is that
+clearcache get installed somewhere in your $PATH with setuid-root permissions.
+The Makefile will take care of this for you, e.g.:
+
+  $ make clearcache
+  gcc -o clearcache -fdiagnostics-show-option -Wall -Wno-format-zero-length -std=gnu99 -O2  -DARTC clearcache.c
+  $ sudo make install-clearcache CLEARCACHE_INSTALL_DIR=/usr/local/bin
+  install -p -m 4755 -o0 -g0 clearcache /usr/local/bin
+
+
+Magritte
+--------
+
+See magritte/README.
+
+
+
+Example
+-------
+
+The following sequence of commands demonstrates how to collect,
+compile, and execute a trace using `geninit', `strace-artc', `artc',
+and `artrun':
+
+    $ mkdir example
+    $ ./geninit /etc /lib64 /tmp > example/example.init
+    $ ./strace-artc -o example/example.strace ls /tmp
+    $ ./artc --strace example/example.strace example/example.init example/example.bench.d
+    $ make -C example/example.bench.d
+    $ ./artrun example/example.bench.d/bench.so /tmp/replaydir
+
+Note that if you follow the naming pattern above (*.strace, *.init),
+you can use the provided Makefile to run the fourth and fifth steps
+automatically by just running `make example/example.so' (or .dylib if
+you're on OS X).

@@ -1,0 +1,57 @@
+#!/bin/bash
+
+source $HOME_REPLAYER/etc/experiment-env.conf
+
+artc_geninit() {
+	echo "--> generating init files"
+	local used_dirs="$TARGET_MNT"
+
+	if [ ! -x $ARTC_GENINIT ]; then
+		echo "You need to compile artc code for geninit, of maybe you did not set HOME_REPLAYER variable"
+		exit 1;
+	fi
+
+	mkdir -p $ARTC_GENINIT_OUTDIR
+	$ARTC_GENINIT -a $used_dirs > $ARTC_GENINIT_FILE
+	echo "<-- finished generating init files"
+}
+
+show_help() {
+	echo "Usage: $0 [--run-beefs | --artc-geninit | --artc-codegen | --artcrun | --help]"
+	echo
+	echo "--run-beefs: runs beefs_repl"
+	echo "--artc-geninit: generate init file for artc compiler (step 1)"
+	echo "--artc-codegen: generates code from converted traces + init files (step 2)"
+	echo "--artcrun: executes artc with the compiled traces (step 3)"
+}
+
+define_parameters() {
+	while [ ! -z $1 ]; do
+		case $1 in
+			--run-beefs)
+				echo "run-beefs (not implemented)"
+				;;
+			--artc-geninit)
+				artc_geninit;
+				exit 0;
+				;;
+			--artc-codegen)
+				echo "codegen"
+				;;
+			--artcrun)
+				echo "run"
+				;;
+			-h | --help | *)
+				show_help;
+				exit 1;
+				;;
+		esac
+		shift
+	done
+}
+
+main() {
+	define_parameters $@;
+}
+
+main $@;

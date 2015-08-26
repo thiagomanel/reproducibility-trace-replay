@@ -1,0 +1,66 @@
+#!/bin/bash
+#
+# This file is part of artc, the Approximate-Replay Trace Compiler.
+#
+# Copyright (C) 2012, 2013 Zev Weiss <zev@cs.wisc.edu>
+#
+# artc is free software: you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free
+# Software Foundation, either version 2 of the License, or (at your
+# option) any later version.
+#
+# artc is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+# FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+# for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with artc.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+shopt -s extglob
+
+xdev="-xdev"
+
+while getopts :a opt; do
+	case "$opt" in
+	a)
+		xdev=''
+		;;
+	*)
+		echo >&2 "Unrecognized flag: $OPTARG"
+		exit 1
+		;;
+	esac
+done
+
+shift $((OPTIND-1))
+
+if [ $# == 0 ]; then
+	set -- "/"
+fi
+
+dump_parents()
+{
+	if [ -z "$1" ]; then
+		echo "dir#/"
+	else
+		dump_parents "${1%/*}"
+		echo "dir#$1"
+	fi
+}
+
+{
+	args=()
+	for p in "$@"; do
+		tmp="${p%%+(/)}"
+		[ -z "$tmp" ] && tmp="/"
+		args+=("$tmp")
+		dump_parents "${tmp%/*}"
+	done
+
+	find "${args[@]}" $xdev \( \( -path /proc -o -path /sys -o -path /dev \) -prune \) \
+		-o \( -type f -printf 'file#%p#%s\n' \) \
+		-o \( -type d -printf 'dir#%p\n' \) \
+		-o \( -type l -printf 'symlink#%p#%l\n' \)
+} | sort | uniq

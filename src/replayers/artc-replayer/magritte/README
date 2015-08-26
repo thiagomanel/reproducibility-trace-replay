@@ -1,0 +1,56 @@
+
+Magritte
+========
+
+Magritte is a suite of 34 benchmarks compiled from a set of traces collected
+from Apple's iLife and iWork application suites.
+
+Compiling
+---------
+
+First you'll need to get the raw traces -- running `./install_traces.sh'
+(requires curl or wget) should take care of that in an automated fashion,
+downloading and extracting the traces into the `ibench' directory, with a
+subdirectory for each trace.
+
+Once the traces are downloaded and extracted at the appropriate location,
+running `make benchmarks' (with -j$SOMETHING as appropriate for your machine)
+will build all 34 benchmarks.  Note that this requires that you have already
+built the compiler (`artc') in the parent directory.
+
+Building the benchmarks can take kind of a long time, especially if you run
+artc with '-a' (not particularly recommended), much of it spent running gperf
+(this can take tens of minutes, even on a recent, fast machine, though make's
+`-j' flag can help a lot here by getting multiple gperfs going in parallel).
+
+Once the build completes, you'll end up with benchmarks at paths like
+`traces/imovie_add1/imovie_add1.so'.
+
+
+Running
+-------
+
+If you want to manually run individual benchmarks, see `artrun.md' (or the
+rendered man page `artrun.1.gz') in the parent directory.  Alternately, to run
+the entire suite you can use the provided `runall.sh' script, which would look
+something like:
+
+    $ ./runall.sh -n 3 testrun -c0 /mnt/foo
+
+The initial `-n 3' is an (optional) parameter to `runall.sh' specifying how
+many runs of each benchmark to perform; `testrun' is an arbitrary tag you
+supply to identify the output files written by each benchmark execution;
+everything beyond that is simply passed directly to `artrun' for each
+benchmark's execution.  The invocation above will thus perform 3 AFAP runs of
+each benchmark in /mnt/foo, generating output files like:
+
+    ibench/imovie_add1/data/testrun-0.err
+    ibench/imovie_add1/data/testrun-0.out
+    ibench/imovie_add1/data/testrun-1.err
+    ibench/imovie_add1/data/testrun-1.out
+    ibench/imovie_add1/data/testrun-2.err
+    ibench/imovie_add1/data/testrun-2.out
+
+(and so forth for each benchmark).  The *.out files are the stdout from each
+`artrun' invocation (where the real data is); *.err are stderr output
+(warnings, errors, etc.).
