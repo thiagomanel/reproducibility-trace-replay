@@ -26,7 +26,7 @@ compile_artc_trace() {
 exec_artc_codegen() {
 	mkdir -p $ARTC_GEN_OUTDIR
 
-	for trace_file in $CAPTURE_OUTDIR/*.*.$workload.*.*.*.*.*.*.load.out; do
+	for trace_file in $CONVERTED_OUTDIR_ARTC/*.*.$workload.*.*.*.load.out; do
 		echo "  generating code for: $trace_file"
 		local artc_gen_outdir=$ARTC_GEN_OUTDIR/$(basename $trace_file)
 		mkdir -p $artc_gen_outdir
