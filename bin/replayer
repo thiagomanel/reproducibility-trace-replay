@@ -61,11 +61,12 @@ artcrun_root() {
 	echo "--> executing artcrun (root policy)"
 	mkdir -p $ARTC_REPLAYER_OUTDIR_ROOT
 
-	for trace_dir in $ARTC_GEN_OUTDIR/*.*.$workload.*.*.*.*.*.*.load.out; do
+	for trace_dir in $ARTC_GEN_OUTDIR/*.*.*.*.*.*.*.*.*.load.out; do
 		for sample in `seq 1 $N_SAMPLES`; do
 			local output_file_base=$ARTC_REPLAYER_OUTDIR_ROOT/$(basename $trace_dir).$sample.root
-			echo "  --> executing: $ARTC_RUN --predelay-multiplier=0 $trace_dir/bench.so $TARGET_DIR 1> $output_file_base.out 2> $output_file_base.err"
+			echo -n "  --> executing: $ARTC_RUN --predelay-multiplier=0 $trace_dir/bench.so $TARGET_DIR 1> $output_file_base.out 2> $output_file_base.err -> "
 			$ARTC_RUN --predelay-multiplier=0 $trace_dir/bench.so $TARGET_DIR 1> $output_file_base.out 2> $output_file_base.err
+			echo $?
 		done
 	done
 	echo "<-- finished execution artcrun (root policy)"
@@ -75,11 +76,12 @@ artcrun_temporal() {
 	echo "--> executing artcrun (temporal policy)"
 	mkdir -p $ARTC_REPLAYER_OUTDIR_TEMPORAL
 
-	for trace_dir in $ARTC_GEN_OUTDIR/*.*.$workload.*.*.*.*.*.*.load.out; do
+	for trace_dir in $ARTC_GEN_OUTDIR/*.*.*.*.*.*.*.*.*.load.out; do
 		for sample in `seq 1 $N_SAMPLES`; do
 			local output_file_base=$ARTC_REPLAYER_OUTDIR_TEMPORAL/$(basename $trace_dir).$sample.root
-			echo "  --> executing: $ARTC_RUN --predelay-multiplier=0 --disable-constraints=all --enable-constraints=temporal $trace_dir/bench.so $TARGET_DIR 1> $output_file_base.out 2> $output_file_base.err"
+			echo -n "  --> executing: $ARTC_RUN --predelay-multiplier=0 --disable-constraints=all --enable-constraints=temporal $trace_dir/bench.so $TARGET_DIR 1> $output_file_base.out 2> $output_file_base.err -> "
 			$ARTC_RUN --predelay-multiplier=0 --disable-constraints=all --enable-constraints=temporal $trace_dir/bench.so $TARGET_DIR 1> $output_file_base.out 2> $output_file_base.err
+			echo $?
 		done
 	done
 	echo "<-- finished execution artcrun (root policy)"
@@ -91,7 +93,8 @@ show_help() {
 	echo "--run-beefs: runs beefs_repl"
 	echo "--artc-geninit: generate init file for artc compiler (step 1)"
 	echo "--artc-codegen: generates code from converted traces + init files (step 2)"
-	echo "--artcrun: executes artc with the compiled traces (step 3)"
+	echo "--artcrun-root: executes artc with the compiled traces. predelay-multiplier is 0, all other option are the defaults (step 3)"
+	echo "--artcrun-temporal: executes artc with the compiled traces. predelay-multiplier is 0, only enable contraint is temporal (step 3)"
 }
 
 define_parameters() {
