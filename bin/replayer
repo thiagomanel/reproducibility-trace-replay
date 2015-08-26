@@ -20,19 +20,22 @@ artc_geninit() {
 }
 
 compile_artc_trace() {
-	make --directory=$1 --makefile=$1/Makefile
+	make --directory=$1 --makefile=$1/Makefile 1> $1/log.out 2> $1/log.err
+	echo $?
 }
 
 exec_artc_codegen() {
 	mkdir -p $ARTC_GEN_OUTDIR
 
 	for trace_file in $CONVERTED_OUTDIR_ARTC/*.*.*.*.*.*.load.out; do
-		echo "  generating code for: $trace_file"
+		echo -n "  generating code for: $trace_file -> "
 		local artc_gen_outdir=$ARTC_GEN_OUTDIR/$(basename $trace_file)
 		mkdir -p $artc_gen_outdir
 
 		$ARTC_CODEGEN --strace $trace_file $ARTC_GENINIT_FILE $artc_gen_outdir
-		echo "  compiling code for: $trace_file"
+		echo $?
+
+		echo -n "  compiling code for: $trace_file -> "
 		compile_artc_trace $artc_gen_outdir
 	done
 }
