@@ -2,6 +2,9 @@
 
 source $HOME_REPLAYER/etc/experiment-env.conf
 
+N_SAMPLES="10"
+TARGET_DIR="/"
+
 artc_geninit() {
 	echo "--> generating init files..."
 	local used_dirs="$TARGET_MNT"
@@ -24,10 +27,12 @@ exec_artc_codegen() {
 	mkdir -p $ARTC_GEN_OUTDIR
 
 	for trace_file in $CAPTURE_OUTDIR/*.*.$workload.*.*.*.*.*.*.load.out; do
+		echo "  generating code for: $trace_file"
 		local artc_gen_outdir=$ARTC_GEN_OUTDIR/$(basename $trace_file)
 		mkdir -p $artc_gen_outdir
 
 		$ARTC_CODEGEN --strace $trace_file $ARTC_GENINIT_FILE $artc_gen_outdir
+		echo "  compiling code for: $trace_file"
 		compile_artc_trace $artc_gen_outdir
 	done
 }
@@ -45,11 +50,36 @@ artc_codegen() {
 		exit 1;
 	fi
 
-
-	# ./artc --strace /local/experiments/converted-artc/1.10768.rw.8.50.5000.4096.1.0.load.out /local/experiments/artc-files/artc-replayer.init /tmp/
-#	$ARTC_CODEGEN --strace $ARTC_GENINIT_FILE $ARTC_GEN_OUTDIR
-
 	exec_artc_codegen;
+	echo "<-- finished compiling traces for artc"
+}
+
+artcrun_root() {
+	echo "--> executing artcrun (root policy)"
+	mkdir -p $ARTC_REPLAYER_OUTDIR_ROOT
+
+	for trace_dir in $ARTC_GEN_OUTDIR/*.*.$workload.*.*.*.*.*.*.load.out; do
+		for sample in `seq 1 $N_SAMPLES`; do
+			local output_file_base=$ARTC_REPLAYER_OUTDIR_ROOT/$(basename $trace_dir).$sample.root
+			echo "  --> executing: $ARTC_RUN --predelay-multiplier=0 $trace_dir/bench.so $TARGET_DIR 1> $output_file_base.out 2> $output_file_base.err"
+			$ARTC_RUN --predelay-multiplier=0 $trace_dir/bench.so $TARGET_DIR 1> $output_file_base.out 2> $output_file_base.err
+		done
+	done
+	echo "<-- finished execution artcrun (root policy)"
+}
+
+artcrun_temporal() {
+	echo "--> executing artcrun (temporal policy)"
+	mkdir -p $ARTC_REPLAYER_OUTDIR_TEMPORAL
+
+	for trace_dir in $ARTC_GEN_OUTDIR/*.*.$workload.*.*.*.*.*.*.load.out; do
+		for sample in `seq 1 $N_SAMPLES`; do
+			local output_file_base=$ARTC_REPLAYER_OUTDIR_TEMPORAL/$(basename $trace_dir).$sample.root
+			echo "  --> executing: $ARTC_RUN --predelay-multiplier=0 --disable-constraints=all --enable-constraints=temporal $trace_dir/bench.so $TARGET_DIR 1> $output_file_base.out 2> $output_file_base.err"
+			$ARTC_RUN --predelay-multiplier=0 --disable-constraints=all --enable-constraints=temporal $trace_dir/bench.so $TARGET_DIR 1> $output_file_base.out 2> $output_file_base.err
+		done
+	done
+	echo "<-- finished execution artcrun (root policy)"
 }
 
 show_help() {
@@ -66,6 +96,7 @@ define_parameters() {
 		case $1 in
 			--run-beefs)
 				echo "run-beefs (not implemented)"
+				exit 0;
 				;;
 			--artc-geninit)
 				artc_geninit;
@@ -73,9 +104,14 @@ define_parameters() {
 				;;
 			--artc-codegen)
 				artc_codegen;
+				exit 0;
 				;;
-			--artcrun)
-				echo "run"
+			--artcrun-root)
+				artcrun_root;
+				exit 0;
+				;;
+			--artcrun-temporal)
+				artcrun_temporal;
 				;;
 			-h | --help | *)
 				show_help;
