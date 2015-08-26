@@ -3,7 +3,7 @@
 source $HOME_REPLAYER/etc/experiment-env.conf
 
 N_SAMPLES="10"
-TARGET_DIR="/"
+TARGET_DIR=$TARGET_MNT
 
 artc_geninit() {
 	echo "--> generating init files..."
