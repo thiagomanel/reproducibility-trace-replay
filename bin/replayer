@@ -1,9 +1,7 @@
 #!/bin/bash
 
 source $HOME_REPLAYER/etc/experiment-env.conf
-
-N_SAMPLES="10"
-TARGET_DIR=$TARGET_MNT
+source $HOME_REPLAYER/lib/helpers.sh
 
 artc_geninit() {
 	echo "--> generating init files..."
@@ -21,22 +19,27 @@ artc_geninit() {
 
 compile_artc_trace() {
 	make --directory=$1 --makefile=$1/Makefile 1> $1/log.out 2> $1/log.err
-	echo $?
+	success_or_die;
 }
 
 exec_artc_codegen() {
 	mkdir -p $ARTC_GEN_OUTDIR
+	success_or_die;
+
+	local counter=0;
 
 	for trace_file in $CONVERTED_OUTDIR_ARTC/*.*.*.*.*.*.load.out; do
-		echo -n "  generating code for: $trace_file -> "
+		echo -n "  generating code for($((++counter))): $trace_file -> "
 		local artc_gen_outdir=$ARTC_GEN_OUTDIR/$(basename $trace_file)
 		mkdir -p $artc_gen_outdir
+		success_or_die;
 
 		$ARTC_CODEGEN --strace $trace_file $ARTC_GENINIT_FILE $artc_gen_outdir
-		echo $?
+		echo_status $?;
 
-		echo -n "  compiling code for: $trace_file -> "
+		echo -n "  compiling code for($counter): $trace_file -> "
 		compile_artc_trace $artc_gen_outdir
+		echo_status $?;
 	done
 }
 
@@ -58,37 +61,66 @@ artc_codegen() {
 }
 
 artcrun_root() {
-	echo "--> executing artcrun (root policy)"
-	mkdir -p $ARTC_REPLAYER_OUTDIR_ROOT
-
-	local counter=0;
-
-	for trace_dir in $ARTC_GEN_OUTDIR/1.*.*.*.*.*.*.*.*.load.out; do
-		for sample in `seq 1 $N_SAMPLES`; do
-			local output_file_base=$ARTC_REPLAYER_OUTDIR_ROOT/$(basename $trace_dir).$sample.root
-			echo -n "  --> executing[ROOT]($((++counter))): $trace_dir/bench.so --> $output_file_base -> "
-			$ARTC_RUN --predelay-multiplier=0 $trace_dir/bench.so $TARGET_DIR 1> $output_file_base.out 2> $output_file_base.err
-			echo $?
-		done
-	done
-	echo "<-- finished execution artcrun (root policy)"
+	$ARTC_RUN --predelay-multiplier=0 $trace_dir/bench.so $TARGET_MNT
 }
 
 artcrun_temporal() {
-	echo "--> executing artcrun (temporal policy)"
-	mkdir -p $ARTC_REPLAYER_OUTDIR_TEMPORAL
+	$ARTC_RUN --predelay-multiplier=0 --disable-constraints=all --enable-constraints=temporal $trace_dir/bench.so $TARGET_MNT
+}
 
+calculate_total_executions() {
+	local base_dir=$1
+	local total_scenarios=$(ls $base_dir | wc -l )
+	echo $(echo "$N_SAMPLES * $total_scenarios" | bc)
+}
+
+run_artc_policy() {
+	case $policy in
+		root)
+			artcrun_root;
+			success_or_die;
+			;;
+		temporal)
+			artcrun_temporal;
+			success_or_die;
+			;;
+		*)
+			echo "Buddy, you need to specify a valid artc policy!"
+			exit 1;
+	esac
+}
+
+do_sleep() {
+	if [ $sleeping ]; then
+		sleep $sleep_sec
+	fi
+}
+
+run_artc() {
+	echo "--> executing artcrun ($policy policy)"
+
+	local output_dir="$ARTC_BASE_RESULTS_OUTDIR-$policy"
+	mkdir -p $output_dir
+	success_or_die
+
+	local total_executions=$(calculate_total_executions)
 	local counter=0;
 
-	for trace_dir in $ARTC_GEN_OUTDIR/1.*.*.*.*.*.*.*.*.load.out; do
-		for sample in `seq 1 $N_SAMPLES`; do
-			local output_file_base=$ARTC_REPLAYER_OUTDIR_TEMPORAL/$(basename $trace_dir).$sample.root
-			echo -n "  --> executing[TEMPORAL]($((++counter))): $trace_dir/bench.so --> $output_file_base -> "
-			$ARTC_RUN --predelay-multiplier=0 --disable-constraints=all --enable-constraints=temporal $trace_dir/bench.so $TARGET_DIR 1> $output_file_base.out 2> $output_file_base.err
-			echo $?
+	for capture_sample in `seq 1 $N_CAPTURE_SAMPLES`; do
+		for trace_dir in $ARTC_GEN_OUTDIR/$capture_sample.*.*.*.*.*.*.*.*.load.out; do
+			for sample in `seq 1 $N_SAMPLES`; do
+				local output_file_base=$ARTC_REPLAYER_OUTDIR_TEMPORAL/$(basename $trace_dir).$sample.$policy
+
+				echo -n "  --> executing[$policy]($((++counter))/$total_executions): $trace_dir/bench.so --> $output_file_base -> "
+				run_artc_policy 1> $output_file_base.out 2> $output_file_base.err;
+				echo_status $?;
+
+				do_sleep;
+			done
 		done
 	done
-	echo "<-- finished execution artcrun (root policy)"
+
+	echo "<-- finished execution artcrun ($policy policy)"
 }
 
 show_help() {
@@ -101,39 +133,137 @@ show_help() {
 	echo "--artcrun-temporal: executes artc with the compiled traces. predelay-multiplier is 0, only enable contraint is temporal (step 3)"
 }
 
+check_artc_parameters() {
+	if [[ ! $geninit && ! $codegen && ! $artcrun ]]; then
+		echo "Dude, you must define an action to artc!"
+		exit 1;
+	fi
+
+	if [ $artcrun ]; then
+		case $policy in
+			root)
+				;;
+			temporal)
+				;;
+			*)
+				echo "Buddy, you need to specify a valid artc policy!"
+				exit 1;
+		esac
+	fi
+}
+
+check_parameters() {
+	check_parameter $replayer "-r | --replayer is missing"
+
+	case $replayer in
+		beefs)
+			echo "beefs (not implemented)"
+			exit 1;
+			;;
+		artc)
+			check_artc_parameters;
+			success_or_die;
+			;;
+		*)
+			echo "Man, you must define a valid replayer!"
+			exit 1;
+			;;
+	esac
+
+	if [[ $sleeping && ! $sleep_sec =~ ^[0-9]+$ ]]; then
+		echo "Guy, sleeping is given in seconds."
+		exit 1;
+	fi
+}
+
+# define and check all necessary parameters from the given arguments.
+# the check is verifies all dependencies
 define_parameters() {
 	while [ ! -z $1 ]; do
 		case $1 in
-			--run-beefs)
-				echo "run-beefs (not implemented)"
-				exit 0;
+			-r | --replayer)
+				shift;
+				replayer=$1;
 				;;
-			--artc-geninit)
-				artc_geninit;
-				exit 0;
+			-g | --artc-geninit)
+				geninit=true;
 				;;
-			--artc-codegen)
-				artc_codegen;
-				exit 0;
+			-c | --artc-codegen)
+				codegen=true;
 				;;
-			--artcrun-root)
-				artcrun_root;
-				exit 0;
+			-x | --artc-run)
+				shift;
+				artcrun=true;
+				policy=$1;
 				;;
-			--artcrun-temporal)
-				artcrun_temporal;
+			-o | --override)
+				override_output=true;
 				;;
-			-h | --help | *)
+			-s | --sleep)
+				shift
+				sleeping=true;
+				sleep_sec=$1
+				;;
+			-h | --help)
 				show_help;
+				exit 0;
+				;;
+			*)
+				echo "Please, try --help to see the list of available parameters"
 				exit 1;
 				;;
 		esac
 		shift
 	done
+
+	check_parameters;
+	success_or_die;
+}
+
+exec_beefs() {
+	echo "beefs (not implemented)"
+	exit 1;
+}
+
+
+# executes all steps for artc, if given the arguments,
+# in the right order (gen init, code gen and then artrun).
+# a step will be executed, only if it was explicited as an argument.
+exec_artc() {
+	if [ $geninit ]; then
+		artc_geninit;
+	fi
+
+	if [ $codegen ]; then
+		artc_codegen;
+	fi
+
+	if [ $artcrun ]; then
+		run_artc;
+	fi
+}
+
+execute() {
+	case $replayer in
+		beefs)
+			exec_beefs;
+			;;
+		artc)
+			exec_artc;
+			;;
+		*)
+			echo "Man, you must define a valid replayer!"
+			exit 1;
+			;;
+	esac
 }
 
 main() {
 	define_parameters $@;
+	success_or_die;
+
+	execute;
+	success_or_die;
 }
 
 main $@;
