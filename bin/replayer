@@ -123,16 +123,6 @@ run_artc() {
 	echo "<-- finished execution artcrun ($policy policy)"
 }
 
-show_help() {
-	echo "Usage: $0 [--run-beefs | --artc-geninit | --artc-codegen | --artcrun | --help]"
-	echo
-	echo "--run-beefs: runs beefs_repl"
-	echo "--artc-geninit: generate init file for artc compiler (step 1)"
-	echo "--artc-codegen: generates code from converted traces + init files (step 2)"
-	echo "--artcrun-root: executes artc with the compiled traces. predelay-multiplier is 0, all other option are the defaults (step 3)"
-	echo "--artcrun-temporal: executes artc with the compiled traces. predelay-multiplier is 0, only enable contraint is temporal (step 3)"
-}
-
 check_artc_parameters() {
 	if [[ ! $geninit && ! $codegen && ! $artcrun ]]; then
 		echo "Dude, you must define an action to artc!"
@@ -176,6 +166,17 @@ check_parameters() {
 	fi
 }
 
+show_help() {
+	echo "Usage: $0 --replayer [beefs | artc] (MANDATORY) --artc-geninit (OPTIONAL) --artc-codegen (OPTIONAL) --artc-run [root | temporal] (OPTIONAL) --sleep N (OPTIONAL) | --help"a
+	echo
+	echo "-r | --replayer: the type of replayer to use, artc or beefs. Note that if using artc, you need to specify at least one action (-g, -c or -x)"
+	echo "                 note that you can use more than one action at time, if using artc. The actions will be executed in right order."
+	echo "-g | --artc-geninit: generates init file for artc (step 1 when running artc)"
+	echo "-c | --artc-codegen: generates code from converted traces + init files (step 2 when running artc)"
+	echo "-x | --artc-run: executes the compiled trace with artc following the specified policy. the policycan be root or temporal (step 3 when running artc)"
+	echo "-s | --sleep: sleeps N seconds in end of each execution."
+}
+
 # define and check all necessary parameters from the given arguments.
 # the check is verifies all dependencies
 define_parameters() {
@@ -195,9 +196,6 @@ define_parameters() {
 				shift;
 				artcrun=true;
 				policy=$1;
-				;;
-			-o | --override)
-				override_output=true;
 				;;
 			-s | --sleep)
 				shift
