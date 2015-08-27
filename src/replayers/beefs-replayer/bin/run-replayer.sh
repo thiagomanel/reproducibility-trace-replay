@@ -10,11 +10,14 @@ N_SAMPLES="10"
 
 mkdir -p $REPLAYER_OUTDIR
 
+counter=0
+
 for workload in $WORKLOAD; do
 	for nthreads in $N_THREAD; do
 		for trace in $CONVERTED_OUTDIR/*.*.$workload.$nthreads.*.*.load.out; do
 			for timing_policy in $TIMING_POLICY; do
 				for sample in `seq 1 $N_SAMPLES`; do
+					echo $((++counter))
 					output_file=$REPLAYER_OUTDIR/$(basename $trace).$sample.$timing_policy
 
 					echo "--> executing: $BEEFS_REPLAYER $trace $timing_policy $nthreads 0 debug > $output_file.out 2> $output_file.err"

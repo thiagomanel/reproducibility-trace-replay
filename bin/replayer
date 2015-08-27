@@ -61,10 +61,12 @@ artcrun_root() {
 	echo "--> executing artcrun (root policy)"
 	mkdir -p $ARTC_REPLAYER_OUTDIR_ROOT
 
-	for trace_dir in $ARTC_GEN_OUTDIR/*.*.*.*.*.*.*.*.*.load.out; do
+	local counter=0;
+
+	for trace_dir in $ARTC_GEN_OUTDIR/1.*.*.*.*.*.*.*.*.load.out; do
 		for sample in `seq 1 $N_SAMPLES`; do
 			local output_file_base=$ARTC_REPLAYER_OUTDIR_ROOT/$(basename $trace_dir).$sample.root
-			echo -n "  --> executing: $ARTC_RUN --predelay-multiplier=0 $trace_dir/bench.so $TARGET_DIR 1> $output_file_base.out 2> $output_file_base.err -> "
+			echo -n "  --> executing[ROOT]($((++counter))): $trace_dir/bench.so --> $output_file_base -> "
 			$ARTC_RUN --predelay-multiplier=0 $trace_dir/bench.so $TARGET_DIR 1> $output_file_base.out 2> $output_file_base.err
 			echo $?
 		done
@@ -76,10 +78,12 @@ artcrun_temporal() {
 	echo "--> executing artcrun (temporal policy)"
 	mkdir -p $ARTC_REPLAYER_OUTDIR_TEMPORAL
 
-	for trace_dir in $ARTC_GEN_OUTDIR/*.*.*.*.*.*.*.*.*.load.out; do
+	local counter=0;
+
+	for trace_dir in $ARTC_GEN_OUTDIR/1.*.*.*.*.*.*.*.*.load.out; do
 		for sample in `seq 1 $N_SAMPLES`; do
 			local output_file_base=$ARTC_REPLAYER_OUTDIR_TEMPORAL/$(basename $trace_dir).$sample.root
-			echo -n "  --> executing: $ARTC_RUN --predelay-multiplier=0 --disable-constraints=all --enable-constraints=temporal $trace_dir/bench.so $TARGET_DIR 1> $output_file_base.out 2> $output_file_base.err -> "
+			echo -n "  --> executing[TEMPORAL]($((++counter))): $trace_dir/bench.so --> $output_file_base -> "
 			$ARTC_RUN --predelay-multiplier=0 --disable-constraints=all --enable-constraints=temporal $trace_dir/bench.so $TARGET_DIR 1> $output_file_base.out 2> $output_file_base.err
 			echo $?
 		done
