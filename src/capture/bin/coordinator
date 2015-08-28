@@ -1,56 +1,33 @@
 #!/bin/bash -e
 
-source ../../conf/experiment.conf
+if [ ! $HOME_REPLAYER ]; then
+	echo "You must to export HOME_REPLAYER first. To know more, plase take a look at the README file.";
+	exit 1;
+fi
 
-function check {
-   local base_out=$1
-   local outpath=$base_out".check.out"
-   local errpath=$base_out".check.err"
-   $CHECK_PATH > $outpath 2> $errpath
+source $HOME_REPLAYER/etc/environment.conf
+source $HOME_REPLAYER/lib/helpers.sh
+
+# We are keeping this variable just to preserv the file names
+nbackground=0;
+
+check() {
+	local base_out=$1
+	local outpath=$base_out".check.out"
+	local errpath=$base_out".check.err"
+
+	$LIB_HOME/check.sh > $outpath 2> $errpath
 }
 
-function drop_caches {
-   local base=$1
-   local outpath=$base".dropcache.local.out"
-   local errpath=$base".dropcache.local.err"
-   $DROP_CACHE_PATH > $outpath 2> $errpath
+drop_caches() {
+	local base=$1
+	local outpath=$base".dropcache.local.out"
+	local errpath=$base".dropcache.local.err"
+
+	$LIB_HOME/clearcache.sh $TARGET_MNT > $outpath 2> $errpath
 }
 
-function cpu_util {
-   local base=$1
-   outpath=$base".cpu_util.out"
-   errpath=$base".cpu_util.err"
-   mpstat 1 > $outpath 2> $errpath < /dev/null &
-}
-
-function kill_cpu_util {
-   killall "mpstat"
-}
-
-function cpu_freq {
-   local base=$1
-   outpath=$base".cpu_freq.out"
-   errpath=$base".cpu_freq.err"
-   $CPU_FREQ_PATH > $outpath 2> $errpath < /dev/null &
-}
-
-function kill_cpu_freq {
-   killall "cpu_freq.sh"
-}
-
-function background {
-   $BACKGROUND_PATH > /dev/null 2> /dev/null < /dev/null &
-}
-
-function killall_background {
-   killall -q "background"
-}
-
-function create_dirs {
-   mkdir -p $CAPTURE_OUTDIR
-}
-
-function foreground {
+foreground() {
    local workload=$1
    local nthreads=$2
    local delay=$3
@@ -63,7 +40,7 @@ function foreground {
    outpath=$base_out".out"
    errpath=$base_out".err"
 
-   foreground_bin=$WORKLOAD_BIN_DIR/$workload
+   foreground_bin=$CAPTURE_HOME/workload/$workload
    foreground_cmd="$foreground_bin $nthreads $delay $nops $loader_input $blksize debug"
 
    case "$trace_tool" in
@@ -84,7 +61,7 @@ function foreground {
 	esac
 }
 
-function show_help {
+show_help() {
 	echo "Illegal number of parameters. Usage: $0 workload nthreads delay nops blksize nsamples nbackground trace_tool"
 	echo -n "Usage:  $0 -w | --workload GUEST_USERNAME "
 	echo -n "-nt | --nthreads NUMBER_OF_THREADS "
@@ -105,25 +82,10 @@ function show_help {
 	echo "-no | --nops: number of operations per thread"
 	echo "-bs | --blksize: size of the block used"
 	echo "-ns | --nsamples: number of samples to be generated"
-	echo "-bg | --nbackground: number of background jobs occuping the cpu"
 	echo "-t  | --trace_tool: the trace tool used (baseline | strace | stap)"
 }
 
-function success_or_die {
-	if [ "$?" -ne "0" ]; then
-		exit 1;
-	fi
-}
-
-function check_parameter {
-	if [ "$#" -ne 2 ]; then
-		echo "$1 is missing"
-		show_help
-		exit 1
-	fi
-}
-
-function check_parameters {
+check_parameters() {
 	check_parameter $workload "-w  | --workload"
 	success_or_die
 	check_parameter $nthreads "-nt | --nthreads"
@@ -136,13 +98,11 @@ function check_parameters {
 	success_or_die
 	check_parameter $nsamples "-ns | --nsamples"
 	success_or_die
-	check_parameter $nbackground "-bg | --nbackground"
-	success_or_die
 	check_parameter $trace_tool "-t  | --trace_tool"
 	success_or_die
 }
 
-function define_parameters {
+define_parameters() {
 	while [ ! -z $1 ]; do
 		case $1 in
 			-w | --workload)
@@ -169,10 +129,6 @@ function define_parameters {
 				shift;
 				nsamples=$1;
 				;;
-			-bg | --nbackground)
-				shift;
-				nbackground=$1;
-				;;
 			-t | --trace_tool)
 				shift;
 				trace_tool=$1;
@@ -188,36 +144,28 @@ function define_parameters {
 	success_or_die
 }
 
-function main {
-	for sample in `seq $nsamples`; do
-		echo "running sample: " $sample
-		base_out=$CAPTURE_OUTDIR/$sample.$RANDOM.$workload.$nthreads.$delay.$nops.$blksize.$sample.$nbackground".load"
+execute() {
+	mkdir -p $BASE_CAPTURE_OUTDIR-$trace_tool
 
-		echo "umount target fs"
-		umount $TARGET_MNT
-		echo "drop vm page cache"
-		drop_caches $base_out
-		echo "checking machine state before experiment"
-		check $base_out
+	for nsample in `seq -w $nsamples`; do
+		echo -n "."
 
-		for i in `seq $nbackground`; do
-			echo "starting background", $i
-      background
-		done
+		local baseout=$baseout_dir/$nsample.$RANDOM.$workload.$nthreads.$delay.$nops.$blksize.$nsample.$nbackground".load";
 
-		echo "mount target fs"
-		mount $TARGET_MNT
+		drop_caches $baseout;
+		check $baseout;
 
-		echo "start load"
-		sleep 5
-		foreground $workload $nthreads $delay $nops $FOREGROUND_INPUT $blksize $trace_tool $base_out
-		sleep 5
-		echo "kill background"
-		killall_background
+		foreground $workload $nthreads $delay $nops $FOREGROUND_INPUT $blksize $trace_tool $baseout;
 	done
 }
 
-define_parameters $@
-success_or_die
-create_dirs
-main
+main() {
+	define_parameters $@
+	success_or_die;
+
+	baseout_dir=$BASE_CAPTURE_OUTDIR-$trace_tool;
+
+	execute;
+}
+
+main $@;

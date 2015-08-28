@@ -1,0 +1,112 @@
+#!/bin/bash
+
+if [ ! $HOME_REPLAYER ]; then
+	echo "You must to export HOME_REPLAYER first. To know more, plase take a look at the README file.";
+	exit 1;
+fi
+
+source $HOME_REPLAYER/etc/environment.conf
+source $HOME_REPLAYER/lib/helpers.sh
+
+nsamples=$N_SAMPLES
+
+show_help() {
+	echo "Implement help"
+}
+
+check_parameters() {
+	check_parameter $trace_tool "-t | --trace-tool is missing, please try --help";
+	check_parameter $nsamples "-n | --samples is missing, please try --help";
+
+	case $trace_tool in
+		baseline | stap | strace)
+			;;
+		*)
+			echo_fail "Invalid trace tool, please try --help to see a list of available tools.";
+			exit 1;
+	esac
+
+	if [[ ! $nsamples =~ ^[0-9]+$ ]]; then
+		echo_fail "Guy, you gave an invalid number of samples, please try --help."
+		exit 1;
+	fi
+}
+
+define_parameters() {
+	while [ ! -z $1 ]; do
+		case $1 in
+			-t | --trace-tool)
+				shift;
+				trace_tool=$1
+				;;
+			-n | --samples)
+				shift;
+				nsamples=$1
+				;;
+			-h | --help)
+				show_help;
+				exit 0;
+				;;
+			*)
+				echo "Please, try --help to see the list of available parameters"
+				exit 1;
+				;;
+		esac
+		shift;
+	done
+
+	check_parameters;
+	success_or_die;
+}
+
+len() {
+	local _array=( $@ )
+	echo ${#_array[@]}
+
+}
+
+calculate_total_executions() {
+	local s_workload=$(len $WORKLOAD)
+	local s_nthreads=$(len $N_THREAD)
+	local s_delays=$(len $DELAYS)
+	local s_nops=$(len $N_OPS)
+	local s_blksize=$(len $BLKSIZE)
+
+	echo "$nsamples * $s_workload * $s_nthreads * $s_delays * $s_nops * $s_blksize" | bc
+}
+
+
+run_coordinator() {
+	local coordinator=$CAPTURE_HOME/bin/coordinator
+	$coordinator --workload $1 --nthreads $2 --delay $3 --nops $4 --blksize $5 --nsamples $nsamples --trace_tool $trace_tool
+}
+
+execute() {
+	local total_executions=$(calculate_total_executions);
+	local counter=0;
+
+	for workload in $WORKLOAD; do
+		for nthreads in $N_THREAD; do
+			for delay in $DELAYS; do
+				for nops in $N_OPS; do
+					for blksize in $BLKSIZE; do
+						counter=$(( $nsamples + counter ))
+						echo -n "--> capturing[$trace_tool]($counter/$total_executions): workload=$workload, nthreads=$nthreads, delay=$delay, nops=$nops, blksize=$blksize "
+						run_coordinator $workload $nthreads $delay $nops $blksize;
+						echo_status $?;
+					done
+				done
+			done
+		done
+	done
+}
+
+main() {
+	define_parameters $@;
+	success_or_die;
+
+	execute;
+	success_or_die;
+}
+
+main $@;

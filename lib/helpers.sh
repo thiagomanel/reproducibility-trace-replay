@@ -1,5 +1,13 @@
 #!/bin/bash
 
+echo_fail() {
+	if [ "$TERM" != "dumb" ];then
+		echo -e "\e[31m$1"  1>&2 ; tput sgr0
+	else
+		echo -e "$1"  1>&2
+	fi
+}
+
 check_parameter() {
 	if [ "$#" -ne 2 ]; then
 		echo "$1 is missing"
