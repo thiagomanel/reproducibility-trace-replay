@@ -11,7 +11,11 @@ source $HOME_REPLAYER/lib/helpers.sh
 nsamples=$N_SAMPLES
 
 show_help() {
-	echo "Implement help"
+	echo "Usage: $0 --trace-tool [baseline | stap | strace] --samples N (OPTIONAL) | --help"
+	echo
+	echo "-t | --trace-tool: tool to capture the traces, it can be baseline, stap and strace."
+	echo "-n | --samples: number of samples (repetitions) to capture, default is extracted from etc/environment.conf (default in file is 10)"
+	echo "-h | --help: show this help"
 }
 
 check_parameters() {

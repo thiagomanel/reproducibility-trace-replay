@@ -167,7 +167,9 @@ check_parameters() {
 }
 
 show_help() {
-	echo "Usage: $0 --replayer [beefs | artc] (MANDATORY) --artc-geninit (OPTIONAL) --artc-codegen (OPTIONAL) --artc-run [root | temporal] (OPTIONAL) --sleep N (OPTIONAL) | --help"a
+	echo "Usage: $0 --replayer [beefs | artc] (MANDATORY) --artc-geninit (OPTIONAL) --artc-codegen (OPTIONAL) --artc-run [root | temporal] (OPTIONAL) --sleep N (OPTIONAL) | --help"
+	echo "Usage: $0 --replayer beefs --sleep N (OPTIONAL)"
+	echo "Usage: $0 --replayer artc --artc-geninit (OPTIONAL) --artc-codegen (OPTIONAL) --artc-run [root | temporal] (OPTIONAL) --sleep N (OPTIONAL)p"
 	echo
 	echo "-r | --replayer: the type of replayer to use, artc or beefs. Note that if using artc, you need to specify at least one action (-g, -c or -x)"
 	echo "                 note that you can use more than one action at time, if using artc. The actions will be executed in right order."
