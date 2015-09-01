@@ -1,0 +1,158 @@
+#!/bin/bash
+
+if [ ! $HOME_REPLAYER ]; then
+	echo "You need to export HOME_REPLAYER"
+	exit 1;
+fi;
+
+source $HOME_REPLAYER/etc/environment.conf
+source $HOME_REPLAYER/lib/helpers.sh
+
+nsamples=$N_SAMPLES
+
+show_help() {
+	echo "Usage: $0 --input-format [baseline] --out-format [beefs | artc] --samples N (OPTIONAL) --order-policy [fs | timestamp] (MANDATORY with beefs output)"
+	echo
+	echo "-i | --input-format: input format"
+	echo "-o | --out-format: output format"
+	echo "-n | --samples: number of captured samples (repetitions) to convert, default is extracted from etc/environment.conf (default in file is 10)"
+	echo "-p | --order-policy: order of syscalls (fs or timestamp), this parameter is mandatory if the output format is beefs "
+}
+
+check_parameters() {
+	check_parameter $output_format "-o | --out-format, please try --help"
+	success_or_die
+
+	check_parameter $input_format "-i | --input-format, please try --help"
+	success_or_die
+
+	case $output_format in
+		beefs)
+			case $order_policy in
+				fs | timestamp)
+					;;
+				*)
+					echo_fail "Invalid order policy, please try --help to see a list of available policies.";
+					exit 1;
+					;;
+			esac
+			;;
+		artc)
+			;;
+		*)
+			echo_fail "Invalid output format, please try --help to see a list of available formats.";
+			exit 1;
+	esac
+
+	case $input_format in
+		baseline)
+			;;
+		*)
+			echo_fail "Invalid input format, please try --help to see a list of available formats.";
+			exit 1;
+			;;
+	esac
+
+
+	if [[ ! $nsamples =~ ^[0-9]+$ ]]; then
+		echo_fail "Guy, you gave an invalid number of samples, please try --help."
+		exit 1;
+	fi
+}
+
+
+define_parameters() {
+	while [ ! -z $1 ]; do
+		case $1 in
+			-o | --out-format)
+				shift;
+				output_format=$1;
+				;;
+			-i | --input-format)
+				shift;
+				input_format=$1;
+				;;
+			-n | --samples)
+				shift;
+				nsamples=$1;
+				;;
+			-p | --order-policy)
+				shift;
+				order_policy=$1;
+				;;
+			-h | --help)
+				show_help;
+				exit 0;
+				;;
+			*)
+				echo "Please, try --help to see the list of available parameters"
+				exit 1;
+				;;
+		esac
+		shift;
+	done
+
+	check_parameters;
+	success_or_die;
+}
+
+convert() {
+	case $output_format in
+		beefs)
+			converter=$CONVERTERS_HOME/convert-baseline-to-beefs_repl.py
+			python $converter $1 $order_policy < $2 > $3
+			;;
+		artc)
+			converter=$CONVERTERS_HOME/convert-baseline-to-artc.py
+			python $converter $1 < $2 > $3
+			;;
+		*)
+			exit 1;
+			;;
+	esac
+}
+
+calculate_total_executions() {
+	local total_executions=0
+	for sample in `seq -w 01 $nsamples`; do
+		for workload in $WORKLOAD; do
+			local counter=$(ls -l $baseinput_dir/$sample.*.$workload.*.*.*.*.*.*.load.out | wc -l);
+			local total_executions=$(( $total_executions + $counter ))
+		done
+	done
+	echo $total_executions
+}
+
+execute() {
+	mkdir -p $baseout_dir;
+	success_or_die;
+
+	local total_executions=$(calculate_total_executions);
+	local counter=0;
+
+	for sample in `seq -w 01 $nsamples`; do
+		for workload in $WORKLOAD; do
+			for trace_file in $baseinput_dir/$sample.*.$workload.*.*.*.*.*.*.load.out; do
+				local trace_file_name=$(basename $trace_file)
+				local counter=$(( ++counter ))
+
+				echo -n "--> converting[$output_format]($counter/$total_executions): $trace_file_name "
+				convert $workload $trace_file $baseout_dir/$trace_file_name;
+				echo_status $?;
+			done
+		done
+	done
+}
+
+main() {
+	define_parameters $@;
+	success_or_die;
+
+	baseinput_dir="$BASE_CAPTURE_OUTDIR-$input_format";
+	baseout_dir="$CONVERTED_OUTDIR-$output_format";
+
+	execute;
+	success_or_die;
+}
+
+main $@;

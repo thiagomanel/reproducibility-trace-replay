@@ -44,3 +44,8 @@ echo_status() {
 		echo_status_ok $1
 	fi
 }
+
+len() {
+	local _array=( $@ )
+	echo ${#_array[@]}
+}

@@ -145,7 +145,7 @@ define_parameters() {
 }
 
 execute() {
-	mkdir -p $BASE_CAPTURE_OUTDIR-$trace_tool
+	mkdir -p $baseout_dir;
 
 	for nsample in `seq -w $nsamples`; do
 		echo -n "."

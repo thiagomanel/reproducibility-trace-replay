@@ -63,12 +63,6 @@ define_parameters() {
 	success_or_die;
 }
 
-len() {
-	local _array=( $@ )
-	echo ${#_array[@]}
-
-}
-
 calculate_total_executions() {
 	local s_workload=$(len $WORKLOAD)
 	local s_nthreads=$(len $N_THREAD)
