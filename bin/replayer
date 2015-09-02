@@ -1,7 +1,10 @@
 #!/bin/bash
 
-source $HOME_REPLAYER/etc/experiment-env.conf
+source $HOME_REPLAYER/etc/environment.conf
 source $HOME_REPLAYER/lib/helpers.sh
+
+nsamples=$N_SAMPLES
+nrepetitions=10
 
 artc_geninit() {
 	echo "--> generating init files..."
@@ -68,12 +71,6 @@ artcrun_temporal() {
 	$ARTC_RUN --predelay-multiplier=0 --disable-constraints=all --enable-constraints=temporal $trace_dir/bench.so $TARGET_MNT
 }
 
-calculate_total_executions() {
-	local base_dir=$1
-	local total_scenarios=$(ls $base_dir | wc -l )
-	echo $(echo "$N_SAMPLES * $total_scenarios" | bc)
-}
-
 run_artc_policy() {
 	case $policy in
 		root)
@@ -106,9 +103,9 @@ run_artc() {
 	local total_executions=$(calculate_total_executions)
 	local counter=0;
 
-	for capture_sample in `seq 1 $N_CAPTURE_SAMPLES`; do
+	for capture_sample in `seq 1 $nsamples`; do
 		for trace_dir in $ARTC_GEN_OUTDIR/$capture_sample.*.*.*.*.*.*.*.*.load.out; do
-			for sample in `seq 1 $N_SAMPLES`; do
+			for sample in `seq 1 $nrepetitions`; do
 				local output_file_base=$ARTC_REPLAYER_OUTDIR_TEMPORAL/$(basename $trace_dir).$sample.$policy
 
 				echo -n "  --> executing[$policy]($((++counter))/$total_executions): $trace_dir/bench.so --> $output_file_base -> "
@@ -121,6 +118,55 @@ run_artc() {
 	done
 
 	echo "<-- finished execution artcrun ($policy policy)"
+}
+
+run_beefs_policy() {
+	for sample in `seq -w 01 $nrepetitions`; do
+		local output_file_base=$output_dir/$(basename $1).$sample.$beefs_policy
+		echo -n "."
+
+		$LIB_HOME/clearcache.sh $TARGET_MNT 1> $output_file_base.clearcache.out 2> $output_file_base.clearcache.err;
+		success_or_die;
+
+		$BEEFS_REPLAYER $1 $2 $3 0 debug 1> $output_file_base.out 2> $output_file_base.err;
+		success_or_die;
+
+		do_sleep;
+		success_or_die;
+	done
+}
+
+calculate_total_executions() {
+	local total_executions=0
+	for sample in `seq -w 01 $nsamples`; do
+		local counter=$(ls -l $1/$sample.*.*.*.*.*.*.*.*.load.out | wc -l);
+		local total_executions=$(( $total_executions + $counter * $nrepetitions ))
+	done
+	echo $total_executions
+}
+
+run_beefs() {
+	echo "--> executing beefs ($beefs_policy policy)"
+	output_dir="$REPLAYER_OUTDIR-$beefs_policy"
+
+	mkdir -p $output_dir
+	success_or_die;
+
+	local total_executions=$(calculate_total_executions $CONVERTED_OUTDIR);
+	local counter=0;
+
+	for capture_sample in `seq -w 01 $nsamples`; do
+		for nthreads in $N_THREAD; do
+			for trace_file in $CONVERTED_OUTDIR/$capture_sample.*.*.$nthreads.*.*.*.*.*.load.out; do
+				echo -n "  --> executing[$beefs_policy]($counter)/$total_executions): $trace_file "
+				local counter=$(( counter + $nrepetitions ))
+				run_beefs_policy $trace_file $beefs_policy $nthreads;
+				echo_status $?;
+			done
+		done
+	done
+
+	echo "<-- finished execution beefs ($beefs_policy policy)"
 }
 
 check_artc_parameters() {
@@ -138,8 +184,20 @@ check_artc_parameters() {
 			*)
 				echo "Buddy, you need to specify a valid artc policy!"
 				exit 1;
+				;;
 		esac
 	fi
+}
+
+check_beefs_parameters() {
+	case $beefs_policy in
+		faster | conservative)
+			;;
+		*)
+			echo "Buddy, you need to specify a valid beefs policy!"
+			exit 1;
+			;;
+	esac
 }
 
 check_parameters() {
@@ -147,8 +205,8 @@ check_parameters() {
 
 	case $replayer in
 		beefs)
-			echo "beefs (not implemented)"
-			exit 1;
+			check_beefs_parameters;
+			success_or_die;
 			;;
 		artc)
 			check_artc_parameters;
@@ -164,11 +222,17 @@ check_parameters() {
 		echo "Guy, sleeping is given in seconds."
 		exit 1;
 	fi
+
+
+	if [[ ! $nsamples =~ ^[0-9]+$ ]]; then
+		echo_fail "Guy, you gave an invalid number of samples, please try --help."
+		exit 1;
+	fi
 }
 
 show_help() {
 	echo "Usage: $0 --replayer [beefs | artc] (MANDATORY) --artc-geninit (OPTIONAL) --artc-codegen (OPTIONAL) --artc-run [root | temporal] (OPTIONAL) --sleep N (OPTIONAL) | --help"
-	echo "Usage: $0 --replayer beefs --sleep N (OPTIONAL)"
+	echo "Usage: $0 --replayer beefs --beefs-policy [conservative | faster]"
 	echo "Usage: $0 --replayer artc --artc-geninit (OPTIONAL) --artc-codegen (OPTIONAL) --artc-run [root | temporal] (OPTIONAL) --sleep N (OPTIONAL)p"
 	echo
 	echo "-r | --replayer: the type of replayer to use, artc or beefs. Note that if using artc, you need to specify at least one action (-g, -c or -x)"
@@ -177,6 +241,7 @@ show_help() {
 	echo "-c | --artc-codegen: generates code from converted traces + init files (step 2 when running artc)"
 	echo "-x | --artc-run: executes the compiled trace with artc following the specified policy. the policycan be root or temporal (step 3 when running artc)"
 	echo "-s | --sleep: sleeps N seconds in end of each execution."
+	echo "-n | --samples: number of captured samples (repetitions) to run, default is extracted from etc/environment.conf (default in file is 10)"
 }
 
 # define and check all necessary parameters from the given arguments.
@@ -200,9 +265,17 @@ define_parameters() {
 				policy=$1;
 				;;
 			-s | --sleep)
-				shift
+				shift;
 				sleeping=true;
 				sleep_sec=$1
+				;;
+			-p | --beefs-policy)
+				shift;
+				beefs_policy=$1;
+				;;
+			-n | --samples)
+				shift;
+				nsamples=$1;
 				;;
 			-h | --help)
 				show_help;
@@ -221,8 +294,7 @@ define_parameters() {
 }
 
 exec_beefs() {
-	echo "beefs (not implemented)"
-	exit 1;
+	run_beefs
 }
 
 
@@ -257,6 +329,8 @@ execute() {
 			;;
 	esac
 }
+
+
 
 main() {
 	define_parameters $@;

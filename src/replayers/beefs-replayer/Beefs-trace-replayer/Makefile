@@ -35,7 +35,7 @@ MAIN = beefs_replayer
 GTEST_HEADERS = $(GTEST_DIR)/include/gtest/*.h \
                 $(GTEST_DIR)/include/gtest/internal/*.h
 
-all : $(MAIN)
+all : $(TESTS) $(MAIN)
 #all : $(MAIN)
 
 clean :
