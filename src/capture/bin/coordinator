@@ -147,7 +147,7 @@ define_parameters() {
 execute() {
 	mkdir -p $baseout_dir;
 
-	for nsample in `seq -w $nsamples`; do
+	for nsample in `seq $nsamples`; do
 		echo -n "."
 
 		local baseout=$baseout_dir/$nsample.$RANDOM.$workload.$nthreads.$delay.$nops.$blksize.$nsample.$nbackground".load";

@@ -114,7 +114,7 @@ convert() {
 
 calculate_total_executions() {
 	local total_executions=0
-	for sample in `seq -w 01 $nsamples`; do
+	for sample in `seq 1 $nsamples`; do
 		for workload in $WORKLOAD; do
 			local counter=$(ls -l $baseinput_dir/$sample.*.$workload.*.*.*.*.*.*.load.out | wc -l);
 			local total_executions=$(( $total_executions + $counter ))
@@ -130,7 +130,7 @@ execute() {
 	local total_executions=$(calculate_total_executions);
 	local counter=0;
 
-	for sample in `seq -w 01 $nsamples`; do
+	for sample in `seq 1 $nsamples`; do
 		for workload in $WORKLOAD; do
 			for trace_file in $baseinput_dir/$sample.*.$workload.*.*.*.*.*.*.load.out; do
 				local trace_file_name=$(basename $trace_file)

@@ -121,7 +121,7 @@ run_artc() {
 }
 
 run_beefs_policy() {
-	for sample in `seq -w 01 $nrepetitions`; do
+	for sample in `seq 1 $nrepetitions`; do
 		local output_file_base=$output_dir/$(basename $1).$sample.$beefs_policy
 		echo -n "."
 
@@ -138,7 +138,7 @@ run_beefs_policy() {
 
 calculate_total_executions() {
 	local total_executions=0
-	for sample in `seq -w 01 $nsamples`; do
+	for sample in `seq 1 $nsamples`; do
 		local counter=$(ls -l $1/$sample.*.*.*.*.*.*.*.*.load.out | wc -l);
 		local total_executions=$(( $total_executions + $counter * $nrepetitions ))
 	done
@@ -155,7 +155,7 @@ run_beefs() {
 	local total_executions=$(calculate_total_executions $CONVERTED_OUTDIR);
 	local counter=0;
 
-	for capture_sample in `seq -w 01 $nsamples`; do
+	for capture_sample in `seq 1 $nsamples`; do
 		for nthreads in $N_THREAD; do
 			for trace_file in $CONVERTED_OUTDIR/$capture_sample.*.*.$nthreads.*.*.*.*.*.load.out; do
 				echo -n "  --> executing[$beefs_policy]($counter)/$total_executions): $trace_file "
