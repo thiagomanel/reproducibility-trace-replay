@@ -19,14 +19,14 @@ def apply_fs_policy(workflow):
 def apply_timestamp_policy(workflow):
 
     def finished_before(probes, current_pos):
-        """ probes are stamp-begin sorted, we return the last which finished
+        """ probes are stamp-end sorted, we return the last which finished
             before stamp begin.
         """
         current_stamp_begin = probes[current_pos]["stamp"]["begin"]
         for pos in xrange(current_pos - 1, -1, -1):
             probe = probes[pos]
             candidate_end = probe["stamp"]["begin"] + probe["stamp"]["elapsed"]
-            if (candidate_end < current_stamp_begin):
+            if (candidate_end <= current_stamp_begin):
                 return probe
         return None
 
@@ -34,7 +34,7 @@ def apply_timestamp_policy(workflow):
     for probes_by_tid in workflow.values():
         for probe in probes_by_tid:
             probes.append(probe)
-    probes = sorted(probes, key=lambda probe: int(probe["stamp"]["begin"]))
+    probes = sorted(probes, key=lambda probe: int(probe["stamp"]["begin"] + probe["stamp"]["elapsed"]))
 
     for pos in range(len(probes)):
         current_probe = probes[pos]
