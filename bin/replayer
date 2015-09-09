@@ -100,13 +100,13 @@ run_artc() {
 	mkdir -p $output_dir
 	success_or_die
 
-	local total_executions=$(calculate_total_executions)
+	local total_executions=$(calculate_total_executions $CONVERTED_OUTDIR_ARTC)
 	local counter=0;
 
 	for capture_sample in `seq 1 $nsamples`; do
 		for trace_dir in $ARTC_GEN_OUTDIR/$capture_sample.*.*.*.*.*.*.*.*.load.out; do
 			for sample in `seq 1 $nrepetitions`; do
-				local output_file_base=$ARTC_REPLAYER_OUTDIR_TEMPORAL/$(basename $trace_dir).$sample.$policy
+				local output_file_base=$output_dir/$(basename $trace_dir).$sample.$policy
 
 				echo -n "  --> executing[$policy]($((++counter))/$total_executions): $trace_dir/bench.so --> $output_file_base -> "
 				run_artc_policy 1> $output_file_base.out 2> $output_file_base.err;
