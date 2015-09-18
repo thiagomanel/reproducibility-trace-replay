@@ -38,6 +38,7 @@ check_parameters() {
 			esac
 			;;
 		artc)
+			order_policy="default"
 			;;
 		*)
 			echo_fail "Invalid output format, please try --help to see a list of available formats.";
@@ -133,7 +134,7 @@ execute() {
 	for sample in `seq 1 $nsamples`; do
 		for workload in $WORKLOAD; do
 			for trace_file in $baseinput_dir/$sample.*.$workload.*.*.*.*.*.*.load.out; do
-				local trace_file_name=$(basename $trace_file)
+				local trace_file_name=$(basename $trace_file).$order_policy
 				local counter=$(( ++counter ))
 
 				echo -n "--> converting[$output_format]($counter/$total_executions): $trace_file_name "
@@ -149,7 +150,7 @@ main() {
 	success_or_die;
 
 	baseinput_dir="$BASE_CAPTURE_OUTDIR-$input_format";
-	baseout_dir="$CONVERTED_OUTDIR-$output_format";
+	baseout_dir="$CONVERTED_OUTDIR-$output_format-$order_policy";
 
 	execute;
 	success_or_die;
