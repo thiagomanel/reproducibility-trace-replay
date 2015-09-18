@@ -139,25 +139,25 @@ run_beefs_policy() {
 calculate_total_executions() {
 	local total_executions=0
 	for sample in `seq 1 $nsamples`; do
-		local counter=$(ls -l $1/$sample.*.*.*.*.*.*.*.*.load.out | wc -l);
+		local counter=$(ls -l $1/$sample.*.*.*.*.*.*.*.*.load.out.* | wc -l);
 		local total_executions=$(( $total_executions + $counter * $nrepetitions ))
 	done
 	echo $total_executions
 }
 
-run_beefs() {
+exec_beefs() {
 	echo "--> executing beefs ($beefs_policy policy)"
-	output_dir="$REPLAYER_OUTDIR-$beefs_policy"
 
+	rm -rf $output_dir
 	mkdir -p $output_dir
 	success_or_die;
 
-	local total_executions=$(calculate_total_executions $CONVERTED_OUTDIR);
+	local total_executions=$(calculate_total_executions $input_dir);
 	local counter=0;
 
 	for capture_sample in `seq 1 $nsamples`; do
 		for nthreads in $N_THREAD; do
-			for trace_file in $CONVERTED_OUTDIR/$capture_sample.*.*.$nthreads.*.*.*.*.*.load.out; do
+			for trace_file in $input_dir/$capture_sample.*.*.$nthreads.*.*.*.*.*.load.out.*; do
 				echo -n "  --> executing[$beefs_policy]($counter)/$total_executions): $trace_file "
 				local counter=$(( counter + $nrepetitions ))
 				run_beefs_policy $trace_file $beefs_policy $nthreads;
@@ -202,6 +202,8 @@ check_beefs_parameters() {
 
 check_parameters() {
 	check_parameter $replayer "-r | --replayer is missing"
+	check_parameter $input_dir "-i | --input-dir"
+	check_parameter $output_dir "-o | --output-dir"
 
 	case $replayer in
 		beefs)
@@ -242,6 +244,9 @@ show_help() {
 	echo "-x | --artc-run: executes the compiled trace with artc following the specified policy. the policycan be root or temporal (step 3 when running artc)"
 	echo "-s | --sleep: sleeps N seconds in end of each execution."
 	echo "-n | --samples: number of captured samples (repetitions) to run, default is extracted from etc/environment.conf (default in file is 10)"
+	echo "-p | --beefs-policy: specify the beefs execution policy [faster | conservative]"
+	echo "-i | --input-dir: input directory with converted traces to beefs format. this is the traces that will be executed."
+	echo "-o | --output-dir: output directory to store the replayer results. note that files in this directory will be erased before execution."
 }
 
 # define and check all necessary parameters from the given arguments.
@@ -281,6 +286,14 @@ define_parameters() {
 				show_help;
 				exit 0;
 				;;
+			-i | --input-dir)
+				shift;
+				input_dir=$1;
+				;;
+			-o | --output-dir)
+				shift;
+				output_dir=$1;
+				;;
 			*)
 				echo "Please, try --help to see the list of available parameters"
 				exit 1;
@@ -292,11 +305,6 @@ define_parameters() {
 	check_parameters;
 	success_or_die;
 }
-
-exec_beefs() {
-	run_beefs
-}
-
 
 # executes all steps for artc, if given the arguments,
 # in the right order (gen init, code gen and then artrun).
