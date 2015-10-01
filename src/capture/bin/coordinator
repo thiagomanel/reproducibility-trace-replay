@@ -5,167 +5,41 @@ if [ ! $HOME_REPLAYER ]; then
 	exit 1;
 fi
 
-source $HOME_REPLAYER/etc/environment.conf
-source $HOME_REPLAYER/lib/helpers.sh
-
 # We are keeping this variable just to preserv the file names
 nbackground=0;
 
-check() {
-	local base_out=$1
-	local outpath=$base_out".check.out"
-	local errpath=$base_out".check.err"
+execute() {
+	local workload=$1
+	local nthreads=$2
+	local delay=$3
+	local nops=$4
+	local loader_input=$5
+	local blksize=$6
+	local trace_tool=$7
+	local output_trace=$8
 
-	$LIB_HOME/check.sh > $outpath 2> $errpath
-}
+	outpath=$output_trace".out"
 
-drop_caches() {
-	local base=$1
-	local outpath=$base".dropcache.local.out"
-	local errpath=$base".dropcache.local.err"
+	foreground_bin=$HOME_REPLAYER/src/capture/workload/$workload
+	foreground_cmd="$foreground_bin $nthreads $delay $nops $loader_input $blksize debug"
 
-	$LIB_HOME/clearcache.sh $TARGET_MNT > $outpath 2> $errpath
-}
-
-foreground() {
-   local workload=$1
-   local nthreads=$2
-   local delay=$3
-   local nops=$4
-   local loader_input=$5
-   local blksize=$6
-   local trace_tool=$7
-   local base_out=$8
-
-   outpath=$base_out".out"
-   errpath=$base_out".err"
-
-   foreground_bin=$CAPTURE_HOME/workload/$workload
-   foreground_cmd="$foreground_bin $nthreads $delay $nops $loader_input $blksize debug"
-
-   case "$trace_tool" in
-			baseline)
-				$foreground_cmd > $outpath 2> $errpath
-				;;
-			stap)
-				stap_out=$base_out".stap"
-				stap -g -DSTP_NO_OVERLOAD -DMAXMAPENTRIES=10000 $STAP_SCRIPT_PATH -c "$foreground_cmd > $outpath 2> $errpath" > $stap_out
-				;;
-			strace)
-				strace_out=$base_out".strace"
-				strace -e trace=open,read,write,pread64,pwrite64,close -T -s -q -ttt -o $strace_out -f $foreground_cmd > $outpath 2> $errpath
-				;;
-			*)
-				echo $"Unknown command: $trace_tool {baseline|stap|strace}"
-				exit 1
+	case "$trace_tool" in
+		baseline)
+			$foreground_cmd > $outpath;
+			;;
+		stap)
+			stap_out=$base_out".stap"
+			stap -g -DSTP_NO_OVERLOAD -DMAXMAPENTRIES=10000 $HOME_REPLAYER/lib/trace.stp -c "$foreground_cmd > $outpath" > $stap_out
+			;;
+		strace)
+			strace_out=$base_out".strace"
+			strace -e trace=open,read,write,pread64,pwrite64,close -T -s -q -ttt -o $strace_out -f $foreground_cmd > $outpath
+			;;
+		*)
+			echo $"Unknown command: $trace_tool {baseline|stap|strace}"
+			exit 1
+			;;
 	esac
 }
 
-show_help() {
-	echo "Illegal number of parameters. Usage: $0 workload nthreads delay nops blksize nsamples nbackground trace_tool"
-	echo -n "Usage:  $0 -w | --workload GUEST_USERNAME "
-	echo -n "-nt | --nthreads NUMBER_OF_THREADS "
-	echo -n "-d | --delay DELAY "
-	echo -n "-no | --nops NUMBER_OF_OPERATIONS "
-	echo -n "-bs | --blksize BLOCK_SIZE "
-	echo -n "-ns | --nsamples NUMBER_OF_SAMPLES "
-	echo -n "-bg | --nbackground NUMBER_OF_BACKGROUND_JOBS"
-	echo "-t | --trace_tool TRACE_TOOL"
-
-	echo -e "\t$0 -h | --help"
-
-	echo
-	echo "-h  | --help: shows this help"
-	echo "-w  | --workload: the type of operation (rr, rw, seqr, seqw)"
-	echo "-nt | --nthreads: number of simulated threads"
-	echo "-d  | --delay: delay in (milliseconds?) between operations"
-	echo "-no | --nops: number of operations per thread"
-	echo "-bs | --blksize: size of the block used"
-	echo "-ns | --nsamples: number of samples to be generated"
-	echo "-t  | --trace_tool: the trace tool used (baseline | strace | stap)"
-}
-
-check_parameters() {
-	check_parameter $workload "-w  | --workload"
-	success_or_die
-	check_parameter $nthreads "-nt | --nthreads"
-	success_or_die
-	check_parameter $delay "-d  | --delay"
-	success_or_die
-	check_parameter $nops "-no | --nops"
-	success_or_die
-	check_parameter $blksize "-bs | --blksize"
-	success_or_die
-	check_parameter $nsamples "-ns | --nsamples"
-	success_or_die
-	check_parameter $trace_tool "-t  | --trace_tool"
-	success_or_die
-}
-
-define_parameters() {
-	while [ ! -z $1 ]; do
-		case $1 in
-			-w | --workload)
-				shift;
-				workload=$1;
-				;;
-			-nt | --nthreads)
-				shift;
-				nthreads=$1;
-				;;
-			-d | --delay)
-				shift;
-				delay=$1;
-				;;
-			-no | --nops)
-				shift;
-				nops=$1;
-				;;
-			-bs | --blksize)
-				shift;
-				blksize=$1;
-				;;
-			-ns | --nsamples)
-				shift;
-				nsamples=$1;
-				;;
-			-t | --trace_tool)
-				shift;
-				trace_tool=$1;
-				;;
-			-h | --help | *)
-				show_help;
-				exit 0;
-				;;
-		esac
-		shift
-	done
-	check_parameters
-	success_or_die
-}
-
-execute() {
-	mkdir -p $baseout_dir;
-
-	for nsample in `seq $nsamples`; do
-		echo -n "."
-
-		local baseout=$baseout_dir/$nsample.$RANDOM.$workload.$nthreads.$delay.$nops.$blksize.$nsample.$nbackground".load";
-
-		drop_caches $baseout;
-		check $baseout;
-
-		foreground $workload $nthreads $delay $nops $FOREGROUND_INPUT $blksize $trace_tool $baseout;
-	done
-}
-
-main() {
-	define_parameters $@
-	success_or_die;
-
-	baseout_dir=$BASE_CAPTURE_OUTDIR-$trace_tool;
-
-	execute;
-}
-
-main $@;
+execute $@;

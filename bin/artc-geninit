@@ -1,0 +1,33 @@
+#!/bin/bash
+
+#
+# Generates de init file used by artc to generate code from traces and compile.
+#
+# Usage: ./gen-artc-init /data /tmp/file.init
+#
+# /data: is the mount point with input files
+# /tmp/file.init: output file with init indexing information
+#
+
+if [ ! $HOME_REPLAYER ]; then
+	echo "You need to export HOME_REPLAYER"
+	exit 1;
+fi;
+
+if [ $# -ne 2 ]; then
+	echo "Usage: $0 target_dir output_file";
+	exit 1;
+fi
+
+target_mnt=$1;
+output_file=$2;
+
+artc_geninit() {
+	local artc_genint=$HOME_REPLAYER/src/replayers/artc-replayer/geninit
+
+	echo "--> generating init files..."
+	$artc_genint -a $target_mnt > $output_file
+	echo "<-- finished generating init files"
+}
+
+artc_geninit;

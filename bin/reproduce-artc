@@ -1,0 +1,80 @@
+#!/bin/bash
+
+#
+# This script executes artcrun with the given input directory.
+# The input diretory must have the directories with compiled strace for artc
+# Depending on the scenarios of your traces, you might
+# have to change some variables in scripts-lib.sh
+#
+# Note that a log of this execution will be created at /tmp/reproduce-artc.$policy.$(date +%s).log
+#
+# Usage: $0 policy [root | temporal] input_dir output_dir target_dir
+#
+# policy: [root | temporal] artc replayer policy
+# input_dir: directory with converted traces
+# output_dir: directory to store the replayer results
+# target_dir: directory artcrun will be passing to clearcache.
+#             Maybe you should give the mount point where the big_file* (input) are.
+#
+
+if [ ! $HOME_REPLAYER ]; then
+	echo "You need to export HOME_REPLAYER"
+	exit 1;
+fi;
+
+source $HOME_REPLAYER/etc/scripts-lib.sh
+
+# how many times each trace will be replayed
+REPETITIONS=10;
+
+if [ $# -ne 4 ]; then
+	echo "Usage: $0 policy [root | temporal] input_dir output_dir target_dir";
+	exit 1;
+fi
+
+policy=$1
+input_dir=$2;
+output_dir=$3;
+
+# this is the directory artc will be flushing and dropping cache
+# maybe you should enter the mount point where the big_file (input) are;
+target=$4;
+
+mkdir -p $output_dir
+
+run_artc() {
+	local workload=$1;
+	local nthreads=$2;
+	local delay=$3;
+	local nops=$4;
+	local blksize=$5;
+	local sample=$6;
+	local nbackground=$7;
+
+	local input_code_dir=$(echo $input_dir/$sample.*.$workload.$nthreads.$delay.$nops.$blksize.$sample.$nbackground.load.out.strace)
+
+	for repetition in `seq 1 $REPETITIONS`; do
+		local output_file=$output_dir/$(basename $input_code_dir).$repetition.$policy
+
+		case $policy in
+			root)
+				$HOME_REPLAYER/src/replayers/artc-replayer/artrun --predelay-multiplier=0 $input_code_dir/bench.so $target 1> $output_file.out 2> $output_file.err;
+				;;
+			temporal)
+				$HOME_REPLAYER/src/replayers/artc-replayer/artrun --predelay-multiplier=0 --disable-constraints=all --enable-constraints=temporal $input_code_dir/bench.so $target 1> $output_file.out 2> $output_file.err;
+				;;
+			*)
+				echo "Buddy, you need to specify a valid artc policy!"
+				exit 1;
+		esac
+	done
+}
+
+log_file=/tmp/reproduce-artc.$policy.$(date +%s).log
+
+echo "===> STARTING `date` <===" > $log_file;
+
+# exec_iteration is a method in scripts-lib.sh file
+exec_iteration run_artc 2>&1 | tee $log_file;
+
+echo "===> FINISHED `date` <===" >> $log_file;

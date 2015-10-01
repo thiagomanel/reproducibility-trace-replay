@@ -1,159 +1,75 @@
 #!/bin/bash
 
+#
+# This script converts a baseline trace for beefs_repl (fs or timestamp), and artc (strace) format.
+#
+# Usage: $0 output_format [beefs-fs | beefs-timestamp | artc] input_dir output_dir
+#
+# output_format: [beefs-fs | beefs-timestamp | artc] output format specify the formar
+#                (beefs_repl or strace) and the ordering os the trace (fs or timestamp)
+# input_dir: directory with baseline traces to convert
+# output_dir: directory to store converted traces
+#
+
 if [ ! $HOME_REPLAYER ]; then
 	echo "You need to export HOME_REPLAYER"
 	exit 1;
 fi;
 
-source $HOME_REPLAYER/etc/environment.conf
-source $HOME_REPLAYER/lib/helpers.sh
+source $HOME_REPLAYER/etc/scripts-lib.sh
 
-nsamples=$N_SAMPLES
+if [ $# -ne 3 ]; then
+	echo "Usage: $0 output_format [beefs-fs | beefs-timestamp | artc] input_dir output_dir";
+	exit 1;
+fi
 
-show_help() {
-	echo "Usage: $0 --input-format [baseline] --out-format [beefs | artc] --samples N (OPTIONAL) --order-policy [fs | timestamp] (MANDATORY with beefs output)"
-	echo
-	echo "-i | --input-format: input format"
-	echo "-o | --out-format: output format"
-	echo "-n | --samples: number of captured samples (repetitions) to convert, default is extracted from etc/environment.conf (default in file is 10)"
-	echo "-p | --order-policy: order of syscalls (fs or timestamp), this parameter is mandatory if the output format is beefs "
-}
+output_format=$1;
+input_dir=$2;
+output_dir=$3;
 
-check_parameters() {
-	check_parameter $output_format "-o | --out-format, please try --help"
-	success_or_die
+mkdir -p $output_dir
 
-	check_parameter $input_format "-i | --input-format, please try --help"
-	success_or_die
-
-	case $output_format in
-		beefs)
-			case $order_policy in
-				fs | timestamp)
-					;;
-				*)
-					echo_fail "Invalid order policy, please try --help to see a list of available policies.";
-					exit 1;
-					;;
-			esac
-			;;
-		artc)
-			order_policy="default"
-			;;
-		*)
-			echo_fail "Invalid output format, please try --help to see a list of available formats.";
-			exit 1;
-	esac
-
-	case $input_format in
-		baseline)
-			;;
-		*)
-			echo_fail "Invalid input format, please try --help to see a list of available formats.";
-			exit 1;
-			;;
-	esac
-
-
-	if [[ ! $nsamples =~ ^[0-9]+$ ]]; then
-		echo_fail "Guy, you gave an invalid number of samples, please try --help."
-		exit 1;
-	fi
-}
-
-
-define_parameters() {
-	while [ ! -z $1 ]; do
-		case $1 in
-			-o | --out-format)
-				shift;
-				output_format=$1;
-				;;
-			-i | --input-format)
-				shift;
-				input_format=$1;
-				;;
-			-n | --samples)
-				shift;
-				nsamples=$1;
-				;;
-			-p | --order-policy)
-				shift;
-				order_policy=$1;
-				;;
-			-h | --help)
-				show_help;
-				exit 0;
-				;;
-			*)
-				echo "Please, try --help to see the list of available parameters"
-				exit 1;
-				;;
-		esac
-		shift;
-	done
-
-	check_parameters;
-	success_or_die;
-}
-
+# Note that this method receives these parameters from exec_iteration
 convert() {
+	local workload=$1;
+	local nthreads=$2;
+	local delay=$3;
+	local nops=$4;
+	local blksize=$5;
+	local sample=$6;
+	local nbackground=$7;
+
+	# $nsample.$RANDOM.$workload.$nthreads.$delay.$nops.$blksize.$nsample.$nbackground".load"
+	local input_baseline_file=$(ls $input_dir/$sample.*.$workload.$nthreads.$delay.$nops.$blksize.$sample.$nbackground.load.out)
+
 	case $output_format in
-		beefs)
-			converter=$CONVERTERS_HOME/convert-baseline-to-beefs_repl.py
-			python $converter $1 $order_policy < $2 > $3
+		beefs-fs)
+			local output_file=$output_dir/$(basename $input_baseline_file).fs;
+			local converter=$HOME_REPLAYER/src/trace-converters/src/convert-baseline-to-beefs_repl.py;
+			python $converter $workload fs < $input_baseline_file > $output_file;
+			;;
+		beefs-timestamp)
+			local output_file=$output_dir/$(basename $input_baseline_file).timestamp;
+			local converter=$HOME_REPLAYER/src/trace-converters/src/convert-baseline-to-beefs_repl.py;
+			python $converter $workload timestamp < $input_baseline_file > $output_file;
 			;;
 		artc)
-			converter=$CONVERTERS_HOME/convert-baseline-to-artc.py
-			python $converter $1 < $2 > $3
+			local output_file=$output_dir/$(basename $input_baseline_file).strace;
+			local converter=$HOME_REPLAYER/src/trace-converters/src/convert-baseline-to-artc.py;
+			python $converter $workload < $input_baseline_file > $output_file;
 			;;
 		*)
+			echo "output_format must be [beefs-fs | beefs-timestamp | artc]";
 			exit 1;
 			;;
 	esac
 }
 
-calculate_total_executions() {
-	local total_executions=0
-	for sample in `seq 1 $nsamples`; do
-		for workload in $WORKLOAD; do
-			local counter=$(ls -l $baseinput_dir/$sample.*.$workload.*.*.*.*.*.*.load.out | wc -l);
-			local total_executions=$(( $total_executions + $counter ))
-		done
-	done
-	echo $total_executions
-}
+log_file=/tmp/converter.$output_format.log
 
-execute() {
-	mkdir -p $baseout_dir;
-	success_or_die;
+echo "===> STARTING `date` <===" > $log_file
 
-	local total_executions=$(calculate_total_executions);
-	local counter=0;
+# exec_iteration is a method in scripts-lib.sh file
+exec_iteration convert 2>&1 | tee $log_file;
 
-	for sample in `seq 1 $nsamples`; do
-		for workload in $WORKLOAD; do
-			for trace_file in $baseinput_dir/$sample.*.$workload.*.*.*.*.*.*.load.out; do
-				local trace_file_name=$(basename $trace_file).$order_policy
-				local counter=$(( ++counter ))
-
-				echo -n "--> converting[$output_format]($counter/$total_executions): $trace_file_name "
-				convert $workload $trace_file $baseout_dir/$trace_file_name;
-				echo_status $?;
-			done
-		done
-	done
-}
-
-main() {
-	define_parameters $@;
-	success_or_die;
-
-	baseinput_dir="$BASE_CAPTURE_OUTDIR-$input_format";
-	baseout_dir="$CONVERTED_OUTDIR-$output_format-$order_policy";
-
-	execute;
-	success_or_die;
-}
-
-main $@;
+echo "===> FINISHED `date` <===" >> $log_file

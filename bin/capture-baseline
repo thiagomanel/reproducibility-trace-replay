@@ -1,0 +1,58 @@
+#!/bin/bash
+
+if [ ! $HOME_REPLAYER ]; then
+	echo "You need to export HOME_REPLAYER"
+	exit 1;
+fi;
+
+source $HOME_REPLAYER/etc/scripts-lib.sh
+
+# mount point of input data.
+# This must be an entry in fstab to be mounted and umounted.
+TARGET_MNT=/data
+FOREGROUND_INPUT=$TARGET_MNT/target/big_file
+
+if [ $# -ne 2 ]; then
+	echo "Usage: $0 trace_tool [baseline | stap | strace] output_dir";
+	exit 1;
+fi
+
+trace_tool=$1;
+output_dir=$2;
+
+case $trace_tool in
+	baseline | stap | strace)
+		;;
+	*)
+		echo_fail "Invalid trace tool, please try --help to see a list of available tools.";
+		exit 1;
+		;;
+esac
+
+mkdir -p $output_dir
+
+# Note that this method receives these parameters from exec_iteration
+run_capture() {
+	local workload=$1;
+	local nthreads=$2;
+	local delay=$3;
+	local nops=$4;
+	local blksize=$5;
+	local sample=$6;
+	local nbackground=$7;
+
+	local output_trace=$output_dir/$sample.$RANDOM.$workload.$nthreads.$delay.$nops.$blksize.$sample.$nbackground".load";
+
+	$HOME_REPLAYER/lib/clearcache.sh $TARGET_MNT;
+
+	$HOME_REPLAYER/src/capture/bin/coordinator $workload $nthreads $delay $nops $FOREGROUND_INPUT $blksize $trace_tool $output_trace
+}
+
+log_file=/tmp/capture.$trace_tool.$(date +%s).log
+
+echo "===> STARTING `date` <===" > $log_file
+
+# exec_iteration is a method in scripts-lib.sh file
+exec_iteration run_capture 2>&1 | tee $log_file;
+
+echo "===> FINISHED `date` <===" >> $log_file
